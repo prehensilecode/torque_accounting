@@ -7,6 +7,7 @@ import sys, os, re
 import datetime
 import copy
 import cPickle
+import numpy as np
 
 from optparse import OptionParser
 
@@ -520,19 +521,29 @@ def main(opt, args):
 
     ncomplete = 0
     has_duration = 0
-    td0 = datetime.timedelta()
+    td0 = datetime.timedelta(seconds=59)
     for k,v in job_dict.iteritems():
         if v.is_complete():
             ncomplete += 1
         if v.duration() and v.duration() > td0:
-                has_duration += 1
+            has_duration += 1
         v.printout()
         print ""
 
     print("Found {n} completed jobs".format(n=ncomplete))
-    print("Found {n} with duration > 0".format(n=has_duration))
+    print("Found {n} with duration > {td0}".format(n=has_duration, td0=td0))
 
 
+    durations = []
+    for k,v in job_dict.iteritems():
+        if v.duration() and v.duration() > td0:
+            durations.append(v.duration().total_seconds() * 1000000)
+
+    dur = np.array(durations, dtype=np.uint64)
+    
+    print 'Max:', datetime.timedelta(seconds=(dur.max()/1000000.))
+    print 'Min:', datetime.timedelta(seconds=(dur.min()/1000000.))
+    print 'Mean:', datetime.timedelta(seconds=(dur.mean()/1000000.))
 
 
 if __name__ == '__main__':
