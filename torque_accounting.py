@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+# Author: David Chin <dwchin . acm.org>
+# License: GPLv3
+
 import sys, os, re
 import datetime
 import copy
