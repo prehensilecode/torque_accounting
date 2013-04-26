@@ -296,23 +296,35 @@ class Job:
 
 
     def new_event(self, event=None, timestamp=None, joblog=None):
+        """Insert a new event record for the job"""
         self.event_list.append(JobEvent(event, timestamp))
 
         self.__parse_joblog(joblog)
 
 
     def get_latest_event(self):
+        """Latest event recorded for the job"""
         return self.event_list[-1]
 
 
     def duration(self):
+        """Amount of walltime the job ran"""
         retval = None
         if self.start and self.end:
             retval = self.end - self.start
         return retval
 
 
+    def wait_time(self):
+        """Amount of time the job waited in the queue before executing"""
+        retval = None
+        if self.start and self.end:
+            retval = self.start - self.qtime
+        return retval
+            
+
     def is_complete(self):
+        """If job has a Start event and an End event"""
         has_s = False
         has_e = False
 
@@ -467,6 +479,41 @@ class Job:
         return retstr
 
 
+def group_stats(job_dict, groupname):
+    thres = datetime.timedelta(seconds=59)
+    n_jobs = 0
+    wait_times = []
+    durations = []
+    for jobid,job in sorted(job_dict.iteritems()):
+        if job.group == groupname:
+            #print jobid, job.user, job.group, job.wait_time(), job.duration()
+            wt = job.wait_time()
+            du = job.duration()
+            if wt and du:
+                if du > thres:
+                    wait_times.append(wt.total_seconds())
+                    durations.append(du.total_seconds())
+                    n_jobs += 1
+
+    wt_arr = np.array(wait_times, np.uint64)
+    du_arr = np.array(durations, np.uint64)
+
+    print "Stats for group {g}".format(g=groupname)
+    print "{n} jobs of duration > {th} found".format(n=n_jobs, th=thres)
+    print ""
+
+    print "WAITING TIMES:"
+    print "Min: ", datetime.timedelta(seconds=float(wt_arr.min()))
+    print "Max: ", datetime.timedelta(seconds=float(wt_arr.max()))
+    print "Mean:", datetime.timedelta(seconds=float(wt_arr.mean()))
+
+    print ""
+    print "DURATIONS:"
+    print "Min: ", datetime.timedelta(seconds=float(du_arr.min()))
+    print "Max: ", datetime.timedelta(seconds=float(du_arr.max()))
+    print "Mean:", datetime.timedelta(seconds=float(du_arr.mean()))
+
+
 
 def parse_line(line):
     """Returns (timestamp, event, jobid, accounting record)"""
@@ -487,7 +534,8 @@ def main(opt, args):
 
         #print("Got {n} lines".format(n=len(lines)))
 
-        for i in range(500):
+        nlines = len(lines)
+        for i in range(nlines):
             timestamp, event, jobid, joblog = parse_line(lines[i])
             if not jobid in job_dict:
                 job_dict[jobid] = Job(jobid=jobid, event=event, timestamp=timestamp, joblog=joblog)
@@ -527,7 +575,7 @@ def main(opt, args):
             ncomplete += 1
         if v.duration() and v.duration() > td0:
             has_duration += 1
-        v.printout()
+        #v.printout()
         print ""
 
     print("Found {n} completed jobs".format(n=ncomplete))
@@ -544,6 +592,12 @@ def main(opt, args):
     print 'Max:', datetime.timedelta(seconds=(dur.max()/1000000.))
     print 'Min:', datetime.timedelta(seconds=(dur.min()/1000000.))
     print 'Mean:', datetime.timedelta(seconds=(dur.mean()/1000000.))
+
+    print ''
+    print ''
+    print ''
+
+    group_stats(job_dict, 'langefeldGrp')
 
 
 if __name__ == '__main__':
