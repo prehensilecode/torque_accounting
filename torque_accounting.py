@@ -162,9 +162,6 @@ class Memory:
         """
         Converts TORQUE memory strings, in the form, 'NNNNNNkb' to dict: {'qty': QTY, 'units': UNITS}
         """
-        KILO = 1024.
-        MEGA = 1048576.
-
         memkb = 0.
 
         bpat = re.compile(r'(\d+\.?\d*)(b)$', re.I)
@@ -179,21 +176,21 @@ class Memory:
             gs = gbpat.search(memstr)
 
             if bs:
-                memkb = float(memstr.split(bs.group(2))[0]) / KILO
+                memkb = float(memstr.split(bs.group(2))[0]) / self.__KILO
             elif kbpat.match(memstr):
                 memkb = float(memstr.split(ks.group(2))[0])
             elif mbpat.match(memstr):
-                memkb = float(memstr.split(ms.group(2))[0]) * KILO
+                memkb = float(memstr.split(ms.group(2))[0]) * self.__KILO
             elif gbpat.match(memstr):
-                memkb = float(memstr.split(gs.group(2))[0]) * MEGA
+                memkb = float(memstr.split(gs.group(2))[0]) * self.__MEGA
             else:
                 sys.stderr.write('convert_memory(): cannot parse "{0}"\n'.format(memstr))
                 raise Exception
 
         if not units:
-            if memkb < KILO:
+            if memkb < self.__KILO:
                 units = 'kB'
-            elif memkb < MEGA:
+            elif memkb < self.__MEGA:
                 units = 'MB'
             else:
                 units = 'GB'
@@ -201,10 +198,10 @@ class Memory:
         mem = {}
         if units == 'GB' or units == 'GiB' or units == 'gb':
             mem['units'] = 'GiB'
-            mem['qty'] = memkb/(MEGA)
+            mem['qty'] = memkb/(self.__MEGA)
         elif units == 'MB' or units == 'MiB' or units == 'mb':
             mem['units'] = 'MiB'
-            mem['qty'] = memkb/(KILO)
+            mem['qty'] = memkb/(self.__KILO)
         elif units == 'kB' or units == 'kiB' or units == 'kb':
             mem['units'] = 'kiB'
             mem['qty'] = memkb
@@ -497,6 +494,10 @@ def main(opt, args):
 
 
     # Fix up job array jobs
+    # Job array jobs have only one 'Q' entry, which bears a 
+    # generic job ID like 123456[].rhel6pbs.deac.wfu.edu
+    # Want to add 'Q' events to all the actual array jobs, 
+    # and then delete that generic initial Q event
     jobarray_base_ids = []
     jobarraybasepat = re.compile(r'^(\d+)\[\]\.\w*')
     for k,v in job_dict.iteritems():
