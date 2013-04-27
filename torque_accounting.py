@@ -577,7 +577,7 @@ def main(opt, args):
         if v.duration() and v.duration() > td0:
             has_duration += 1
         #v.printout()
-        print ""
+        #print ""
 
     print("Found {n} completed jobs".format(n=ncomplete))
     print("Found {n} with duration > {td0}".format(n=has_duration, td0=td0))
