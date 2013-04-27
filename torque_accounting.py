@@ -307,7 +307,9 @@ class Job:
     def duration(self):
         """Amount of walltime the job ran"""
         retval = None
-        if self.start and self.end:
+        if 'walltime' in self.resources_used:
+            retval = self.resources_used['walltime']
+        elif self.start and self.end:
             retval = self.end - self.start
         return retval
 
@@ -320,8 +322,16 @@ class Job:
         return retval
             
 
+    def walltime_discrepancy(self):
+        """(Req. walltime - Actual walltime)/Actual walltime"""
+        retval = None
+        d = self.duration()
+        if d:
+            retval = (self.resources_requested['walltime'].total_seconds() - d.total_seconds())/d.total_seconds()
+        return retval
+
     def is_complete(self):
-        """If job has a Start event and an End event"""
+        """If job has a complete record, i.e. has a Start event and an End event"""
         has_s = False
         has_e = False
 
@@ -476,6 +486,7 @@ class Job:
         return retstr
 
 
+
 def group_stats(job_dict, groupname):
     thres = datetime.timedelta(seconds=59)
     n_jobs = 0
@@ -510,6 +521,36 @@ def group_stats(job_dict, groupname):
     print "Max: ", datetime.timedelta(seconds=float(du_arr.max()))
     print "Mean:", datetime.timedelta(seconds=float(du_arr.mean()))
 
+
+def walltime_stats(job_dict):
+    n_jobs = 0
+    durations = []
+    discrepancies = []
+    thres = datetime.timedelta(seconds=59)
+    for jobid,job in sorted(job_dict.iteritems()):
+        d = job.duration()
+        if d and d > thres:
+            n_jobs += 1
+            durations.append(d.total_seconds())
+            discrepancies.append(job.walltime_discrepancy())
+
+    du_arr = np.array(durations, np.uint64)
+    ds_arr = np.array(discrepancies, np.float64)
+
+    print "WALLTIME STATS (actual)"
+    print "{n} jobs found (duration > {t})".format(n=n_jobs, t=thres)
+    print "discrepancy = (req. walltime - actual walltime)/actual walltime"
+    print ""
+
+    print "Min. walltime: ", datetime.timedelta(seconds=float(du_arr.min()))
+    print "Max. walltime: ", datetime.timedelta(seconds=float(du_arr.max()))
+    print "Mean walltime: ", datetime.timedelta(seconds=float(du_arr.mean()))
+
+    print ""
+
+    print "Min. discrepancy:", ds_arr.min()
+    print "Max. discrepancy:", ds_arr.max()
+    print "Mean discrepancy:", ds_arr.mean()
 
 
 def parse_line(line):
@@ -576,10 +617,14 @@ def main(opt, args):
             ncomplete += 1
         if v.duration() and v.duration() > td0:
             has_duration += 1
-        #v.printout()
-        #print ""
+        v.printout()
+        if v.resources_used:
+            for res in ['walltime', 'cput', 'vmem']:
+                print "resources_used[{res}]: {val}".format(res=res, val=v.resources_used[res])
+            print "walltime discrepancy:", v.walltime_discrepancy()
+        print ""
 
-    print("Found {n} completed jobs".format(n=ncomplete))
+    print("Found {n} jobs with complete log record".format(n=ncomplete))
     print("Found {n} with duration > {td0}".format(n=has_duration, td0=td0))
 
 
@@ -599,6 +644,10 @@ def main(opt, args):
     print ''
 
     group_stats(job_dict, 'langefeldGrp')
+
+    print("")
+
+    walltime_stats(job_dict)
 
 
 if __name__ == '__main__':
