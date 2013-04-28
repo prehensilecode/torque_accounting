@@ -585,9 +585,12 @@ def walltime_stats(job_dict):
 
         print ""
 
-        print "Min. discrepancy:", datetime.timedelta(seconds=float(ds_arr.min()))
-        print "Max. discrepancy:", datetime.timedelta(seconds=float(ds_arr.max()))
-        print "Mean discrepancy:", datetime.timedelta(seconds=float(ds_arr.mean()))
+        if ds_arr.min() < 0:
+            print "Min. discrepancy: {d:>6.2f} sec".format(d=ds_arr.min())
+        else:
+            print "Min. discrepancy: {d}".format(d=datetime.timedelta(seconds=float(ds_arr.min())))
+        print "Max. discrepancy: {d}".format(d=datetime.timedelta(seconds=float(ds_arr.max())))
+        print "Mean discrepancy: {d}".format(d=datetime.timedelta(seconds=float(ds_arr.mean())))
 
 
 def parse_line(line):

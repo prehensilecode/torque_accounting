@@ -1,2 +1,13 @@
 * Handle datetime.timedelta properly so that -ve timedeltas don't
   give nonsensical discrepancies like -1day...
+
+  - see http://docs.python.org/2.6/library/datetime.html
+    This is due to normalization to ensure that days, seconds, and microseconds
+    remain within limits:
+
+        0 <= microseconds < 1000000
+        0 <= seconds < 3600*24 (the number of seconds in one day)
+        -999999999 <= days <= 999999999
+
+    so timedelta(microseconds=-1) -> days=-1, seconds=86399, microseconds=999999
+
