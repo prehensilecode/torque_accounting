@@ -326,7 +326,7 @@ class Job:
         """(Req. walltime - Actual walltime)/Actual walltime"""
         retval = None
         d = self.duration()
-        if d:
+        if d and d > datetime.timedelta(seconds=0):
             retval = (self.resources_requested['walltime'].total_seconds() - d.total_seconds())/d.total_seconds()
         return retval
 
@@ -510,16 +510,52 @@ def group_stats(job_dict, groupname):
     print "{n} jobs of duration > {th} found".format(n=n_jobs, th=thres)
     print ""
 
-    print "WAITING TIMES:"
-    print "Min: ", datetime.timedelta(seconds=float(wt_arr.min()))
-    print "Max: ", datetime.timedelta(seconds=float(wt_arr.max()))
-    print "Mean:", datetime.timedelta(seconds=float(wt_arr.mean()))
+    if n_jobs:
+        print "WAITING TIMES:"
+        print "Min: ", datetime.timedelta(seconds=float(wt_arr.min()))
+        print "Max: ", datetime.timedelta(seconds=float(wt_arr.max()))
+        print "Mean:", datetime.timedelta(seconds=float(wt_arr.mean()))
 
+        print ""
+        print "DURATIONS:"
+        print "Min: ", datetime.timedelta(seconds=float(du_arr.min()))
+        print "Max: ", datetime.timedelta(seconds=float(du_arr.max()))
+        print "Mean:", datetime.timedelta(seconds=float(du_arr.mean()))
+
+
+def user_stats(job_dict, username):
+    thres = datetime.timedelta(seconds=59)
+    n_jobs = 0
+    wait_times = []
+    durations = []
+    for jobid,job in sorted(job_dict.iteritems()):
+        if job.user == username:
+            wt = job.wait_time()
+            du = job.duration()
+            if wt and du:
+                if du > thres:
+                    wait_times.append(wt.total_seconds())
+                    durations.append(du.total_seconds())
+                    n_jobs += 1
+
+    wt_arr = np.array(wait_times, np.uint64)
+    du_arr = np.array(durations, np.uint64)
+
+    print "Stats for user {u}".format(u=username)
+    print "{n} jobs of duration > {th} found".format(n=n_jobs, th=thres)
     print ""
-    print "DURATIONS:"
-    print "Min: ", datetime.timedelta(seconds=float(du_arr.min()))
-    print "Max: ", datetime.timedelta(seconds=float(du_arr.max()))
-    print "Mean:", datetime.timedelta(seconds=float(du_arr.mean()))
+
+    if n_jobs:
+        print "WAITING TIMES:"
+        print "Min: ", datetime.timedelta(seconds=float(wt_arr.min()))
+        print "Max: ", datetime.timedelta(seconds=float(wt_arr.max()))
+        print "Mean:", datetime.timedelta(seconds=float(wt_arr.mean()))
+
+        print ""
+        print "DURATIONS:"
+        print "Min: ", datetime.timedelta(seconds=float(du_arr.min()))
+        print "Max: ", datetime.timedelta(seconds=float(du_arr.max()))
+        print "Mean:", datetime.timedelta(seconds=float(du_arr.mean()))
 
 
 def walltime_stats(job_dict):
@@ -542,15 +578,16 @@ def walltime_stats(job_dict):
     print "discrepancy = (req. walltime - actual walltime)/actual walltime"
     print ""
 
-    print "Min. walltime: ", datetime.timedelta(seconds=float(du_arr.min()))
-    print "Max. walltime: ", datetime.timedelta(seconds=float(du_arr.max()))
-    print "Mean walltime: ", datetime.timedelta(seconds=float(du_arr.mean()))
+    if n_jobs:
+        print "Min. walltime: ", datetime.timedelta(seconds=float(du_arr.min()))
+        print "Max. walltime: ", datetime.timedelta(seconds=float(du_arr.max()))
+        print "Mean walltime: ", datetime.timedelta(seconds=float(du_arr.mean()))
 
-    print ""
+        print ""
 
-    print "Min. discrepancy:", ds_arr.min()
-    print "Max. discrepancy:", ds_arr.max()
-    print "Mean discrepancy:", ds_arr.mean()
+        print "Min. discrepancy:", datetime.timedelta(seconds=float(ds_arr.min()))
+        print "Max. discrepancy:", datetime.timedelta(seconds=float(ds_arr.max()))
+        print "Mean discrepancy:", datetime.timedelta(seconds=float(ds_arr.mean()))
 
 
 def parse_line(line):
@@ -628,24 +665,40 @@ def main(opt, args):
     print("Found {n} with duration > {td0}".format(n=has_duration, td0=td0))
 
 
-    durations = []
-    for k,v in job_dict.iteritems():
-        if v.duration() and v.duration() > td0:
-            durations.append(v.duration().total_seconds() * 1000000)
+    #durations = []
+    #for k,v in job_dict.iteritems():
+    #    if v.duration() and v.duration() > td0:
+    #        durations.append(v.duration().total_seconds() * 1000000)
 
-    dur = np.array(durations, dtype=np.uint64)
+    #dur = np.array(durations, dtype=np.uint64)
     
-    print 'Max:', datetime.timedelta(seconds=(dur.max()/1000000.))
-    print 'Min:', datetime.timedelta(seconds=(dur.min()/1000000.))
-    print 'Mean:', datetime.timedelta(seconds=(dur.mean()/1000000.))
+    #print 'Max:', datetime.timedelta(seconds=(dur.max()/1000000.))
+    #print 'Min:', datetime.timedelta(seconds=(dur.min()/1000000.))
+    #print 'Mean:', datetime.timedelta(seconds=(dur.mean()/1000000.))
 
-    print ''
-    print ''
+    #print ''
+    #print ''
     print ''
 
     group_stats(job_dict, 'langefeldGrp')
 
-    print("")
+    print("-----------------------------------------------------------------")
+
+    group_stats(job_dict, 'thonhauserGrp')
+
+    print("-----------------------------------------------------------------")
+
+    group_stats(job_dict, 'salsburyGrp')
+
+    print("-----------------------------------------------------------------")
+
+    user_stats(job_dict, 'canepap')
+
+    print("-----------------------------------------------------------------")
+
+    user_stats(job_dict, 'negureal')
+
+    print("-----------------------------------------------------------------")
 
     walltime_stats(job_dict)
 
