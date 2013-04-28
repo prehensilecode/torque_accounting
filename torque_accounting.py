@@ -326,7 +326,7 @@ class Job:
         """(Req. walltime - Actual walltime)/Actual walltime"""
         retval = None
         d = self.duration()
-        if d and d > datetime.timedelta(seconds=0):
+        if d:
             retval = (self.resources_requested['walltime'].total_seconds() - d.total_seconds())/d.total_seconds()
         return retval
 
