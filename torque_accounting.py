@@ -323,11 +323,11 @@ class Job:
             
 
     def walltime_discrepancy(self):
-        """(Req. walltime - Actual walltime)/Actual walltime"""
+        """(Req. walltime - Actual walltime)"""
         retval = None
         d = self.duration()
         if d:
-            retval = (self.resources_requested['walltime'].total_seconds() - d.total_seconds())/d.total_seconds()
+            retval = self.resources_requested['walltime'].total_seconds() - d.total_seconds()
         return retval
 
     def is_complete(self):
@@ -487,26 +487,33 @@ class Job:
 
 
 
-def group_stats(job_dict, groupname):
+def usergroup_stats(job_dict=None, what='user', whatname=''):
+    """what = 'user' or 'group'
+       whatname = username or groupname"""
+
     thres = datetime.timedelta(seconds=59)
     n_jobs = 0
     wait_times = []
     durations = []
+    discrepancies = []
     for jobid,job in sorted(job_dict.iteritems()):
-        if job.group == groupname:
+        if job.__dict__[what] == whatname:
             #print jobid, job.user, job.group, job.wait_time(), job.duration()
             wt = job.wait_time()
             du = job.duration()
+            disc = job.walltime_discrepancy()
             if wt and du:
                 if du > thres:
                     wait_times.append(wt.total_seconds())
                     durations.append(du.total_seconds())
+                    discrepancies.append(disc)
                     n_jobs += 1
 
     wt_arr = np.array(wait_times, np.uint64)
     du_arr = np.array(durations, np.uint64)
+    di_arr = np.array(discrepancies, np.int64)
 
-    print "Stats for group {g}".format(g=groupname)
+    print "Stats for {w} {g}".format(w=what, g=whatname)
     print "{n} jobs of duration > {th} found".format(n=n_jobs, th=thres)
     print ""
 
@@ -522,61 +529,45 @@ def group_stats(job_dict, groupname):
         print "Max: ", datetime.timedelta(seconds=float(du_arr.max()))
         print "Mean:", datetime.timedelta(seconds=float(du_arr.mean()))
 
-
-def user_stats(job_dict, username):
-    thres = datetime.timedelta(seconds=59)
-    n_jobs = 0
-    wait_times = []
-    durations = []
-    for jobid,job in sorted(job_dict.iteritems()):
-        if job.user == username:
-            wt = job.wait_time()
-            du = job.duration()
-            if wt and du:
-                if du > thres:
-                    wait_times.append(wt.total_seconds())
-                    durations.append(du.total_seconds())
-                    n_jobs += 1
-
-    wt_arr = np.array(wait_times, np.uint64)
-    du_arr = np.array(durations, np.uint64)
-
-    print "Stats for user {u}".format(u=username)
-    print "{n} jobs of duration > {th} found".format(n=n_jobs, th=thres)
-    print ""
-
-    if n_jobs:
-        print "WAITING TIMES:"
-        print "Min: ", datetime.timedelta(seconds=float(wt_arr.min()))
-        print "Max: ", datetime.timedelta(seconds=float(wt_arr.max()))
-        print "Mean:", datetime.timedelta(seconds=float(wt_arr.mean()))
-
         print ""
-        print "DURATIONS:"
-        print "Min: ", datetime.timedelta(seconds=float(du_arr.min()))
-        print "Max: ", datetime.timedelta(seconds=float(du_arr.max()))
-        print "Mean:", datetime.timedelta(seconds=float(du_arr.mean()))
+        print "DISCREPANCIES:"
+        print "Min: ", datetime.timedelta(seconds=float(di_arr.min()))
+        print "Max: ", datetime.timedelta(seconds=float(di_arr.max()))
+        print "Mean:", datetime.timedelta(seconds=float(di_arr.mean()))
 
 
-def walltime_stats(job_dict):
+def time_stats(job_dict):
     n_jobs = 0
+    n_jobs_cput = 0
     durations = []
+    cput_durations = []
     discrepancies = []
     thres = datetime.timedelta(seconds=59)
     for jobid,job in sorted(job_dict.iteritems()):
         d = job.duration()
-        if d and d > thres:
+        if job.is_complete() and d and d > thres:
             n_jobs += 1
             durations.append(d.total_seconds())
             discrepancies.append(job.walltime_discrepancy())
 
+        if job.is_complete() and ('cput' in job.resources_used) and d > thres:
+            n_jobs_cput += 1
+            c = job.resources_used['cput']
+            cput_durations.append(c.total_seconds())
+        else:
+            print 'FOOBAR: job {jobid} no cput'.format(jobid=jobid)
+            print 'FOOBAR: job {jobid} duration = {d}'.format(jobid=jobid, d=d)
+            print 'FOOBAR: job {jobid} is_complete = {c}'.format(jobid=jobid, c=job.is_complete())
+
+
     du_arr = np.array(durations, np.uint64)
     ds_arr = np.array(discrepancies, np.float64)
+    ct_arr = np.array(cput_durations, np.uint64)
 
-    print "WALLTIME STATS (actual)"
-    print "{n} jobs found (duration > {t})".format(n=n_jobs, t=thres)
-    print "discrepancy = (req. walltime - actual walltime)/actual walltime"
-    print ""
+    print("WALLTIME STATS (actual)")
+    print("{n} jobs found (duration > {t})".format(n=n_jobs, t=thres))
+    print("discrepancy = (req. walltime - actual walltime)")
+    print("")
 
     if n_jobs:
         print "Min. walltime: ", datetime.timedelta(seconds=float(du_arr.min()))
@@ -591,6 +582,39 @@ def walltime_stats(job_dict):
             print "Min. discrepancy: {d}".format(d=datetime.timedelta(seconds=float(ds_arr.min())))
         print "Max. discrepancy: {d}".format(d=datetime.timedelta(seconds=float(ds_arr.max())))
         print "Mean discrepancy: {d}".format(d=datetime.timedelta(seconds=float(ds_arr.mean())))
+
+    print("")
+    print("CPU TIME STATS")
+    print("{n} jobs found".format(n=n_jobs_cput))
+    print("")
+    if n_jobs_cput:
+        print("Min. CPU time: {ct}".format(ct=datetime.timedelta(seconds=float(ct_arr.min()))))
+        print("Max. CPU time: {ct}".format(ct=datetime.timedelta(seconds=float(ct_arr.max()))))
+        print("Mean CPU time: {ct}".format(ct=datetime.timedelta(seconds=float(ct_arr.mean()))))
+
+
+
+def ncpus_stats(job_dict):
+    thres = datetime.timedelta(seconds=59)
+    n_jobs = 0
+    ncpus = []
+    for jobid,job in sorted(job_dict.iteritems()):
+        d = job.duration()
+        if job.is_complete() and d and d > thres:
+            n_jobs += 1
+            ncpus.append(job.ncpus)
+
+    nc_arr = np.array(ncpus, np.uint64)
+
+    print("NCPUs STATS")
+    print("{n} jobs found (duration > {t})".format(n=n_jobs, t=thres))
+    print("")
+
+    if n_jobs:
+        print("Min. NCPUs: {n}".format(n=nc_arr.min()))
+        print("Max. NCPUs: {n}".format(n=nc_arr.max()))
+        print("Mean NCPUs: {n}".format(n=nc_arr.mean()))
+
 
 
 def parse_line(line):
@@ -657,12 +681,12 @@ def main(opt, args):
             ncomplete += 1
         if v.duration() and v.duration() > td0:
             has_duration += 1
-        v.printout()
-        if v.resources_used:
-            for res in ['walltime', 'cput', 'vmem']:
-                print "resources_used[{res}]: {val}".format(res=res, val=v.resources_used[res])
-            print "walltime discrepancy:", v.walltime_discrepancy()
-        print ""
+        #v.printout()
+        #if v.resources_used:
+        #    for res in ['walltime', 'cput', 'vmem']:
+        #        print "resources_used[{res}]: {val}".format(res=res, val=v.resources_used[res])
+        #    print "walltime discrepancy:", v.walltime_discrepancy()
+        #print ""
 
     print("Found {n} jobs with complete log record".format(n=ncomplete))
     print("Found {n} with duration > {td0}".format(n=has_duration, td0=td0))
@@ -681,29 +705,42 @@ def main(opt, args):
 
     #print ''
     #print ''
-    print ''
+    print('')
+    time_stats(job_dict)
 
-    group_stats(job_dict, 'langefeldGrp')
+    print('')
+    ncpus_stats(job_dict)
 
-    print("-----------------------------------------------------------------")
-
-    group_stats(job_dict, 'thonhauserGrp')
-
-    print("-----------------------------------------------------------------")
-
-    group_stats(job_dict, 'salsburyGrp')
 
     print("-----------------------------------------------------------------")
 
-    user_stats(job_dict, 'canepap')
+    usergroup_stats(job_dict, 'group', 'langefeldGrp')
 
     print("-----------------------------------------------------------------")
 
-    user_stats(job_dict, 'negureal')
+    usergroup_stats(job_dict, 'group', 'thonhauserGrp')
 
     print("-----------------------------------------------------------------")
 
-    walltime_stats(job_dict)
+    usergroup_stats(job_dict, 'group', 'salsburyGrp')
+
+    print("-----------------------------------------------------------------")
+
+    usergroup_stats(job_dict, 'user', 'canepap')
+
+    print("-----------------------------------------------------------------")
+
+    usergroup_stats(job_dict, 'user', 'negureal')
+
+    print("============")
+    n_funny = 0
+    for jobid,job in sorted(job_dict.iteritems()):
+        if not job.is_complete() and job.duration():
+            n_funny += 1
+            print("Job {jobid} log not complete, with duration {d}".format(jobid=jobid, d=job.duration()))
+            job.printout()
+            print("")
+    print("Found {n} funny jobs".format(n=n_funny))
 
 
 if __name__ == '__main__':
