@@ -7,6 +7,7 @@ import sys, os, re
 import datetime
 import copy
 import cPickle
+import re
 import numpy as np
 
 from optparse import OptionParser
@@ -327,7 +328,8 @@ class Job:
         retval = None
         d = self.duration()
         if d:
-            retval = self.resources_requested['walltime'].total_seconds() - d.total_seconds()
+            #retval = self.resources_requested['walltime'].total_seconds() - d.total_seconds()
+            retval = self.resources_requested['walltime'].days * 86400 + self.resources_requested['walltime'].seconds
         return retval
 
     def is_complete(self):
@@ -504,8 +506,8 @@ def usergroup_stats(job_dict=None, what='user', whatname=''):
             disc = job.walltime_discrepancy()
             if wt and du:
                 if du > thres:
-                    wait_times.append(wt.total_seconds())
-                    durations.append(du.total_seconds())
+                    wait_times.append(wt.days * 86400 + wt.seconds)
+                    durations.append(du.days * 86400 + du.seconds)
                     discrepancies.append(disc)
                     n_jobs += 1
 
@@ -547,13 +549,13 @@ def time_stats(job_dict):
         d = job.duration()
         if job.is_complete() and d and d > thres:
             n_jobs += 1
-            durations.append(d.total_seconds())
+            durations.append(d.days * 86400 + d.seconds)
             discrepancies.append(job.walltime_discrepancy())
 
         if job.is_complete() and ('cput' in job.resources_used) and d > thres:
             n_jobs_cput += 1
             c = job.resources_used['cput']
-            cput_durations.append(c.total_seconds())
+            cput_durations.append(c.days * 86400 + c.seconds)
         else:
             print 'FOOBAR: job {jobid} no cput'.format(jobid=jobid)
             print 'FOOBAR: job {jobid} duration = {d}'.format(jobid=jobid, d=d)
@@ -591,7 +593,6 @@ def time_stats(job_dict):
         print("Min. CPU time: {ct}".format(ct=datetime.timedelta(seconds=float(ct_arr.min()))))
         print("Max. CPU time: {ct}".format(ct=datetime.timedelta(seconds=float(ct_arr.max()))))
         print("Mean CPU time: {ct}".format(ct=datetime.timedelta(seconds=float(ct_arr.mean()))))
-
 
 
 def ncpus_stats(job_dict):
@@ -732,15 +733,25 @@ def main(opt, args):
 
     usergroup_stats(job_dict, 'user', 'negureal')
 
+    print("-----------------------------------------------------------------")
+
+    usergroup_stats(job_dict, 'user', 'jchou')
+
     print("============")
-    n_funny = 0
-    for jobid,job in sorted(job_dict.iteritems()):
-        if not job.is_complete() and job.duration():
-            n_funny += 1
-            print("Job {jobid} log not complete, with duration {d}".format(jobid=jobid, d=job.duration()))
-            job.printout()
-            print("")
-    print("Found {n} funny jobs".format(n=n_funny))
+    jchou_novoalign_pat = re.compile(r'.*novoalign.pbs$')
+    for jobid, job in sorted(job_dict.iteritems()):
+        jcsearch = jchou_novoalign_pat.search(job.jobname)
+        if jcsearch:
+            print(jcsearch.group(0))
+        
+    #n_funny = 0
+    #for jobid,job in sorted(job_dict.iteritems()):
+    #    if not job.is_complete() and job.duration():
+    #        n_funny += 1
+    #        print("Job {jobid} log not complete, with duration {d}".format(jobid=jobid, d=job.duration()))
+    #        job.printout()
+    #        print("")
+    #print("Found {n} funny jobs".format(n=n_funny))
 
 
 if __name__ == '__main__':
