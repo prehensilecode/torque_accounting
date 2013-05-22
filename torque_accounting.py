@@ -417,6 +417,7 @@ class Job:
     def __parse_joblog(self, joblog):
         if self.__debug_p:
             print 'DEBUG: joblog=', joblog
+
         cur_event = self.get_latest_event().event
         joblogdata = joblog.split(' ')
         data = {}
@@ -640,10 +641,12 @@ def main(opt, args):
         nlines = len(lines)
         for i in range(nlines):
             timestamp, event, jobid, joblog = parse_line(lines[i])
-            if not jobid in job_dict:
-                job_dict[jobid] = Job(jobid=jobid, event=event, timestamp=timestamp, joblog=joblog)
-            else:
-                job_dict[jobid].new_event(event=event, timestamp=timestamp, joblog=joblog)
+            print 'FOOBAR: joblog=', joblog
+            if joblog:
+                if not jobid in job_dict:
+                    job_dict[jobid] = Job(jobid=jobid, event=event, timestamp=timestamp, joblog=joblog)
+                else:
+                    job_dict[jobid].new_event(event=event, timestamp=timestamp, joblog=joblog)
 
 
 
@@ -737,12 +740,21 @@ def main(opt, args):
 
     usergroup_stats(job_dict, 'user', 'jchou')
 
+    print("-----------------------------------------------------------------")
+
+    usergroup_stats(job_dict, 'user', 'dmcwilli')
+
     print("============")
     jchou_novoalign_pat = re.compile(r'.*novoalign.pbs$')
     for jobid, job in sorted(job_dict.iteritems()):
-        jcsearch = jchou_novoalign_pat.search(job.jobname)
-        if jcsearch:
-            print(jcsearch.group(0))
+        if not job.jobname:
+            print("ALOHA: jobid {0} has no jobname; is_complete() = {1}".format(jobid, job.is_complete()))
+            job.printout()
+        elif job.jobname:
+            print("FOOBAR: job.jobname={0}".format(job.jobname))
+            jcsearch = jchou_novoalign_pat.match(job.jobname)
+            if jcsearch:
+                print(jcsearch.group(0))
         
     #n_funny = 0
     #for jobid,job in sorted(job_dict.iteritems()):
