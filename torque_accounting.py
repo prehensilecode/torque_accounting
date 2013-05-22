@@ -641,7 +641,6 @@ def main(opt, args):
         nlines = len(lines)
         for i in range(nlines):
             timestamp, event, jobid, joblog = parse_line(lines[i])
-            print 'FOOBAR: joblog=', joblog
             if joblog:
                 if not jobid in job_dict:
                     job_dict[jobid] = Job(jobid=jobid, event=event, timestamp=timestamp, joblog=joblog)
